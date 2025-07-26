@@ -40,3 +40,13 @@ export async function checkAuth(req, res) {
     return res.json({ success: false, message: "something went wrong" });
   }
 }
+export async function logout(req, res) {
+  res
+    .cookie("usertoken", "", {
+      httpOnly: true,
+      expires: new Date(0),
+      secure: true,
+      sameSite: "none",
+    })
+    .json({ message: "Logged out", error: false });
+}
