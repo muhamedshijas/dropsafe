@@ -1,4 +1,5 @@
 import './globals.css'; 
+import 'remixicon/fonts/remixicon.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

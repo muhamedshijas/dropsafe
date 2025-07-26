@@ -3,9 +3,11 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./routers/authRouter.js";
 import dotenv from "dotenv";
+import dbConnect from "./config/dbConnect.js";
 
 const app = express();
 dotenv.config();
+dbConnect()
 
 app.use(cookieParser());
 app.use(express.json());
