@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const fileSchema = new mongoose.Schema({
   filename: {
@@ -10,20 +10,23 @@ const fileSchema = new mongoose.Schema({
     required: true,
   },
   size: {
-    type: Number,
+    type: String,
     required: true,
   },
   mimeType: {
     type: String,
     required: true,
   },
-  s3Url: {
+  fileUrl: {
     type: String,
     required: true,
   },
+  publicId: {
+    type: String,
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // links to User collection
+    ref: "User", // links to User collection
     required: true,
   },
   uploadedAt: {
@@ -32,5 +35,5 @@ const fileSchema = new mongoose.Schema({
   },
 });
 
-const File = mongoose.model('File', fileSchema);
+const File = mongoose.model("File", fileSchema);
 export default File;

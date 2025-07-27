@@ -5,8 +5,8 @@ import bcrypt from "bcryptjs";
 export async function signup(req, res) {
   try {
     const { name, email, password } = req.body;
-    console.log(name,email,password);
-    
+    console.log(name, email, password);
+
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res
@@ -40,7 +40,7 @@ export async function login(req, res) {
         .json({ success: false, message: "User not found" });
     }
 
-    const isMatch = await password===user.password
+    const isMatch = (await password) === user.password;
     if (!isMatch) {
       return res
         .status(401)
@@ -48,7 +48,7 @@ export async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: user._id, email: user.email, name: user.name },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -91,5 +91,5 @@ export async function logout(req, res) {
       secure: true,
       sameSite: "none",
     })
-    .json({ message: "Logged out", error: false });
+    .json({ message: "Logged out", success: true });
 }

@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "../../utils/axiosInstance";
 import ProtectedRoute from "../../protectedRoute";
 import useUser from "./hooks/useUser";
 import UploadModal from "@/modals/uploadModal";
+import dynamic from "next/dynamic";
+import DetailsModal from "@/modals/detials.Modal";
+import { useRouter } from "next/navigation";
+
+const PdfViewer = dynamic(() => import("../modals/pdfViewer"), { ssr: false });
 
 interface FileType {
   id: string;
@@ -12,87 +17,98 @@ interface FileType {
   size: string;
   uploadedAt: string;
   type: string;
+  fileUrl: string;
+  uploadedBy?: string;
+  userName?: string;
 }
 
 export default function HomePage() {
-  const { userId, loading } = useUser();
+  const { userId, loading, userName } = useUser();
+  const router = useRouter();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileType | null>(null);
+  const [viewingFile, setViewingFile] = useState<FileType | null>(null);
+  const [files, setFiles] = useState<FileType[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null); // New state
+
   const filesPerPage = 5;
-
-  const dummyFiles: FileType[] = [
-    {
-      id: "1",
-      filename: "resume.pdf",
-      size: "120 KB",
-      uploadedAt: "2025-07-26T10:15:00Z",
-      type: "PDF",
-    },
-    {
-      id: "2",
-      filename: "profile-pic.jpg",
-      size: "340 KB",
-      uploadedAt: "2025-07-25T14:20:00Z",
-      type: "Image",
-    },
-    {
-      id: "3",
-      filename: "project.zip",
-      size: "2.4 MB",
-      uploadedAt: "2025-07-24T09:00:00Z",
-      type: "Archive",
-    },
-    {
-      id: "4",
-      filename: "invoice.docx",
-      size: "180 KB",
-      uploadedAt: "2025-07-23T08:30:00Z",
-      type: "Document",
-    },
-    {
-      id: "5",
-      filename: "presentation.pptx",
-      size: "1.2 MB",
-      uploadedAt: "2025-07-22T11:10:00Z",
-      type: "Presentation",
-    },
-    {
-      id: "6",
-      filename: "code.js",
-      size: "15 KB",
-      uploadedAt: "2025-07-21T13:45:00Z",
-      type: "Code",
-    },
-    {
-      id: "7",
-      filename: "design.fig",
-      size: "512 KB",
-      uploadedAt: "2025-07-20T17:25:00Z",
-      type: "Design",
-    },
-    {
-      id: "8",
-      filename: "notes.txt",
-      size: "12 KB",
-      uploadedAt: "2025-07-19T10:00:00Z",
-      type: "Text",
-    },
-  ];
-
-  const totalPages = Math.ceil(dummyFiles.length / filesPerPage);
+  const totalPages = Math.ceil(files.length / filesPerPage);
   const startIndex = (currentPage - 1) * filesPerPage;
-  const currentFiles = dummyFiles.slice(startIndex, startIndex + filesPerPage);
+  const currentFiles = files.slice(startIndex, startIndex + filesPerPage);
 
-  const handleDownload = (filename: string) => {
-    alert(`Downloading ${filename}`);
+  const fetchFiles = async () => {
+    try {
+      const { data } = await axios.get(`/file/getallfiles/${userId}`);
+      const formatted = data.files.map((file: any) => ({
+        id: file._id,
+        filename: file.filename,
+        type: file.mimeType.split("/")[1]?.toUpperCase() || "Unknown",
+        size: file.size,
+        uploadedAt: file.uploadedAt,
+        uploadedBy: file.user?.name,
+        fileUrl: file.fileUrl,
+      }));
+      setFiles(formatted);
+    } catch (error) {
+      console.error("Failed to fetch files:", error);
+    }
   };
 
-  const handleView = (filename: string) => {
-    alert(`Viewing ${filename}`);
+  useEffect(() => {
+    if (userId) {
+      fetchFiles();
+    }
+  }, [userId]);
+
+  const handleLogout = async () => {
+    const { data } = await axios.get("/auth/logout");
+    if (data.success) {
+      router.push("/login");
+    }
   };
 
-  const handleDelete = (filename: string) => {
-    alert(`Deleting ${filename}`);
+  const handleDownload = (url: string) => {
+    window.open(url, "_blank");
+  };
+
+  const handleView = (file: FileType) => {
+    if (file.type === "PDF") {
+      setViewingFile(file);
+    } else if (
+      ["JPG", "JPEG", "PNG", "GIF", "WEBP", "MP4", "WEBM"].includes(file.type)
+    ) {
+      window.open(file.fileUrl, "_blank");
+    } else {
+      alert("Preview not supported. Try downloading instead.");
+    }
+  };
+
+  const handleInfo = (file: FileType) => {
+    setSelectedFile(file);
+    setDetailsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const confirmDelete = confirm("Are you sure you want to delete this file?");
+    if (!confirmDelete) return;
+
+    setDeletingFileId(id);
+    try {
+      const { data } = await axios.delete(`/file/deletefile/${id}`);
+      if (data.success) {
+        alert("File deleted successfully");
+        fetchFiles(); // Refresh the list
+      } else {
+        alert("Failed to delete the file");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Error occurred while deleting.");
+    } finally {
+      setDeletingFileId(null);
+    }
   };
 
   return (
@@ -102,15 +118,20 @@ export default function HomePage() {
           <p>Loading user...</p>
         ) : (
           <div className="w-full max-w-4xl p-6">
-            <p className="mb-4">👤 User ID: {userId ?? "Not logged in"}</p>
+            <p className="mb-4">👤 User Name: {userName ?? "Not logged in"}</p>
 
-            {/* Upload button */}
             <div className="flex justify-end mb-4">
               <button
                 className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700"
                 onClick={() => setIsUploadOpen(true)}
               >
                 + Upload File
+              </button>
+              <button
+                className="bg-red-800 text-white px-4 py-2 rounded hover:bg-red-300 ml-3"
+                onClick={handleLogout}
+              >
+                Logout
               </button>
             </div>
 
@@ -130,32 +151,47 @@ export default function HomePage() {
                   </div>
                   <div className="flex gap-3 text-xl">
                     <button
-                      onClick={() => handleView(file.filename)}
+                      onClick={() => handleView(file)}
                       className="text-blue-600 hover:text-blue-800"
                       title="View"
                     >
                       <i className="ri-eye-line"></i>
                     </button>
                     <button
-                      onClick={() => handleDownload(file.filename)}
+                      onClick={() => handleInfo(file)}
+                      className="text-gray-600 hover:text-gray-800"
+                      title="Info"
+                    >
+                      <i className="ri-information-line"></i>
+                    </button>
+                    <button
+                      onClick={() => handleDownload(file.fileUrl)}
                       className="text-green-600 hover:text-green-800"
                       title="Download"
                     >
                       <i className="ri-download-2-line"></i>
                     </button>
                     <button
-                      onClick={() => handleDelete(file.filename)}
-                      className="text-red-600 hover:text-red-800"
+                      onClick={() => handleDelete(file.id)}
+                      className={`text-red-600 hover:text-red-800 ${
+                        deletingFileId === file.id
+                          ? "opacity-50 pointer-events-none"
+                          : ""
+                      }`}
                       title="Delete"
+                      disabled={deletingFileId === file.id}
                     >
-                      <i className="ri-delete-bin-6-line"></i>
+                      {deletingFileId === file.id ? (
+                        <i className="ri-loader-4-line animate-spin" />
+                      ) : (
+                        <i className="ri-delete-bin-6-line" />
+                      )}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Pagination controls */}
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
@@ -177,9 +213,35 @@ export default function HomePage() {
                 Next
               </button>
             </div>
+
+            {viewingFile && (
+              <div className="mt-6 border rounded p-4 bg-white shadow">
+                <h3 className="text-lg font-semibold mb-2">
+                  Viewing: {viewingFile.filename}
+                </h3>
+                <PdfViewer fileUrl={viewingFile.fileUrl} />
+                <button
+                  onClick={() => setViewingFile(null)}
+                  className="mt-4 bg-red-500 text-white px-4 py-2 rounded"
+                >
+                  Close Viewer
+                </button>
+              </div>
+            )}
           </div>
         )}
-        <UploadModal isOpen={isUploadOpen} setIsOpen={setIsUploadOpen} />
+
+        <UploadModal
+          isOpen={isUploadOpen}
+          setIsOpen={setIsUploadOpen}
+          userId={userId}
+        />
+
+        <DetailsModal
+          isOpen={detailsModalOpen}
+          setIsOpen={setDetailsModalOpen}
+          file={selectedFile}
+        />
       </div>
     </ProtectedRoute>
   );

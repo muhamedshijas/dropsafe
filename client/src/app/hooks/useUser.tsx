@@ -4,6 +4,7 @@ import axios from "../../../utils/axiosInstance";
 const useUser = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -12,8 +13,10 @@ const useUser = () => {
         console.log(res);
 
         setUserId(res.data.user.id);
+        setUserName(res.data.user.name);
       } catch (error) {
         setUserId(null);
+        setUserName("");
       } finally {
         setLoading(false);
       }
@@ -22,7 +25,7 @@ const useUser = () => {
     checkAuth();
   }, []);
 
-  return { userId, loading };
+  return { userId, loading, userName };
 };
 
 export default useUser;
