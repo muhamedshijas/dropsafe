@@ -10,12 +10,21 @@ dotenv.config();
 const app = express();
 dbConnect();
 
-app.use(cookieParser());
-app.use(express.json());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://dropsafe.onrender.com",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:3000", // frontend origin
-    credentials: true, // this is what allows cookies to be sent
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, 
   })
 );
 
